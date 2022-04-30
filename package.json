@@ -14,10 +14,9 @@
     ],
     "author": "Ehsan Ul Haq",
     "license": "ISC",
-    "type": "module",
     "dependencies": {
-        "aws-sdk": "^2.1125.0",
         "axios": "^0.27.2",
         "dotenv": "^16.0.0"
-    }
+    },
+    "type": "module"
 }

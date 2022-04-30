@@ -6,9 +6,9 @@ dotenv.config();
 
 import fs from "fs";
 
-const AWS = require("aws-sdk");
+// const AWS = require("aws-sdk");
 
-AWS.config.update({ region: "us-west-2" });
+// AWS.config.update({ region: "us-west-2" });
 
 import {
   // getToken,
@@ -34,10 +34,11 @@ export const handler = async (event = null) => {
     };
   }
 
-  const jwt_token = await fs
-    .readFileSync("jwt_token.txt", "utf8", (err) => console.error(err))
-    .toString()
-    .split("\n")[0];
+  // const jwt_token = await fs
+  //   .readFileSync("jwt_token.txt", "utf8", (err) => console.error(err))
+  //   .toString()
+  //   .split("\n")[0];
+  const jwt_token = process.env.MENDER_JWT_TOKEN;
 
   res = await askMender(jwt_token, cmd);
   res = JSON.stringify(res);
