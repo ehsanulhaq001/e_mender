@@ -1,0 +1,4 @@
+.env
+node_modules
+jwt_token.txt
+.DS_Store
