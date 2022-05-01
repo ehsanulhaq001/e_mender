@@ -1,5 +1,6 @@
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
 import axios from "axios";
-// import SSH from "simple-ssh";
 import fs from "fs";
 import fetch from "node-fetch";
 import FormData from "form-data";
@@ -100,36 +101,12 @@ export const list_devices = async (jwt_token) => {
       return res.data;
     })
     .then((arr) => {
-      // //sort array based on created date
+      //sort array based on created date
       // arr.sort((a, b) => (new Date(a.created) < new Date(b.created) ? 1 : -1));
       devices = arr;
     });
   return devices;
 };
-
-// export const getToken = async () => {
-//   const pemfile = "ubuntuOregon.cer";
-//   const ssh = new SSH({
-//     host: "ip-172-31-1-137.us-west-2.compute.internal",
-//     user: "ubuntu",
-//     key: fs.readFileSync(pemfile),
-//   });
-//   let prom = new Promise(function (resolve, reject) {
-//     ssh
-//       .exec(`echo $(cat token.txt)`, {
-//         out: function (stdout) {
-//           resolve(stdout);
-//         },
-//       })
-//       .start({
-//         fail: function (e) {
-//           console.log("failed connection, boo");
-//           console.log(e);
-//         },
-//       });
-//   });
-//   return await prom;
-// };
 
 export const list_users = async (jwt_token) => {
   let resp;
@@ -171,19 +148,30 @@ export const auditlogs = async (jwt_token) => {
   return resp;
 };
 
-export const upload_artifact = async (jwt_token) => {
+export const upload_artifact = async (context, jwt_token, artifact_name) => {
   let response;
 
   let fd = new FormData();
-  fd.append("name", "test_art_2");
-  fd.append("device_types_compatible", "qemux86-64");
-  fd.append("type", "single_file");
-  fd.append(
-    "file",
-    await fs.readFileSync("./test.txt", "utf-8", function (err, data) {
-      console.log(err, data);
-    })
-  );
+  let data0;
+  try {
+    await getArtifactFromS3(artifact_name).then((res) => {
+      data0 = res.Body;
+    });
+  } catch {
+    return {
+      message: "Artifact with name " + artifact_name + " not uploaded yet",
+    };
+  }
+  fs.writeFileSync("/tmp/artifact.mender", data0, function (err) {
+    if (err) {
+      context.fail("writeFile failed: " + err);
+    } else {
+      context.succeed("writeFile succeeded");
+    }
+  });
+
+  let data = fs.createReadStream("/tmp/artifact.mender");
+  fd.append("artifact", data);
 
   const headers = {
     Accept: "application/json",
@@ -191,7 +179,7 @@ export const upload_artifact = async (jwt_token) => {
   };
 
   await fetch(
-    "https://hosted.mender.io/api/management/v1/deployments/artifacts/generate",
+    "https://hosted.mender.io/api/management/v1/deployments/artifacts",
     {
       method: "POST",
       body: fd,
@@ -205,4 +193,20 @@ export const upload_artifact = async (jwt_token) => {
       response = body;
     });
   return response;
+};
+
+const getArtifactFromS3 = (artifact_name) => {
+  const AWS = require("aws-sdk");
+  AWS.config.update({ region: "us-west-2" });
+
+  const s3 = new AWS.S3({
+    accessKeyId: process.env.ACCESS_KEY_ID,
+    secretAccessKey: process.env.SECRET_ACCESS_KEY,
+  });
+
+  const params = {
+    Bucket: "e-storage-bucket",
+    Key: artifact_name,
+  };
+  return s3.getObject(params).promise();
 };

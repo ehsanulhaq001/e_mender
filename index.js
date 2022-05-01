@@ -4,11 +4,9 @@ const require = createRequire(import.meta.url);
 import dotenv from "dotenv";
 dotenv.config();
 
-import fs from "fs";
+const AWS = require("aws-sdk");
 
-// const AWS = require("aws-sdk");
-
-// AWS.config.update({ region: "us-west-2" });
+AWS.config.update({ region: "us-west-2" });
 
 import {
   // getToken,
@@ -21,7 +19,7 @@ import {
   upload_artifact,
 } from "./utils.js";
 
-export const handler = async (event = null) => {
+export const handler = async (event = null, context) => {
   let res;
   let cmd = 0;
 
@@ -30,17 +28,12 @@ export const handler = async (event = null) => {
   } else {
     return {
       statusCode: 200,
-      body: `Yeah API is working fine!...... Hopefully! All of it...... :)`,
+      body: "Yeah API is working fine!...... Hopefully! All of it...... :)",
     };
   }
-
-  // const jwt_token = await fs
-  //   .readFileSync("jwt_token.txt", "utf8", (err) => console.error(err))
-  //   .toString()
-  //   .split("\n")[0];
   const jwt_token = process.env.MENDER_JWT_TOKEN;
 
-  res = await askMender(jwt_token, cmd);
+  res = await askMender(event, context, jwt_token, cmd);
   res = JSON.stringify(res);
 
   const response = {
@@ -50,7 +43,7 @@ export const handler = async (event = null) => {
   return response;
 };
 
-const askMender = async (jwt_token, cmd) => {
+const askMender = async (event, context, jwt_token, cmd) => {
   let res;
   switch (cmd) {
     case "1":
@@ -79,8 +72,15 @@ const askMender = async (jwt_token, cmd) => {
       };
       break;
     case "01":
+      let artifact_name = event.queryStringParameters.artifact_name;
+      if (!artifact_name) artifact_name = "undefined";
+
       res = {
-        upload_artifact: await upload_artifact(jwt_token),
+        upload_artifact: await upload_artifact(
+          context,
+          jwt_token,
+          artifact_name
+        ),
       };
       break;
     case "s3key":
@@ -91,21 +91,22 @@ const askMender = async (jwt_token, cmd) => {
         },
       };
       break;
+    case "s3list":
+      res = {
+        item_list: await getListFromS3(),
+      };
+      break;
   }
   return res;
 };
 
-const getDataFromS3 = () => {
+const getListFromS3 = () => {
   const s3 = new AWS.S3({
     accessKeyId: process.env.ACCESS_KEY_ID,
     secretAccessKey: process.env.SECRET_ACCESS_KEY,
   });
 
-  const params = {
-    Bucket: "e-storage-bucket",
-    Key: "image.png",
-  };
   return s3.listObjectsV2({ Bucket: "e-storage-bucket" }).promise();
-  // return s3.getObject(params).promise();
 };
-console.log(await handler({ queryStringParameters: { cmd: "5" } }));
+
+// console.log(await handler({ queryStringParameters: { cmd: "s3list" } }));
